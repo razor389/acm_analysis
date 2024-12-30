@@ -3,7 +3,7 @@
 import requests
 import logging
 from typing import Dict, List, Optional
-from .models import CompanyProfile, FinancialStatement
+from .models import CompanyProfile
 
 logger = logging.getLogger(__name__)
 
@@ -55,24 +55,40 @@ class FMPClient:
             company_name=profile.get("companyName"),
             exchange=profile.get("exchange"),
             description=profile.get("description"),
-            market_cap=profile.get("mktCap"),
             sector=profile.get("sector"),
-            subsector=profile.get("industry"),
-            fiscal_year_end=profile.get("fiscalYearEnd")
+            industry=profile.get("industry")
         )
 
-    def get_financial_statements(self, symbol: str, statement_type: str, period: str = "annual") -> List[Dict]:
-        logger.info(f"Fetching {statement_type} for '{symbol}', period={period}")
-        return self._get(f"{statement_type}/{symbol}", {"period": period})
+    def get_income_statement(self, symbol: str, period: str = "annual") -> List[Dict]:
+        """Fetch income statements."""
+        logger.info(f"Fetching income statements for '{symbol}', period={period}")
+        return self._get(f"income-statement/{symbol}", {"period": period})
+
+    def get_balance_sheet(self, symbol: str, period: str = "annual") -> List[Dict]:
+        """Fetch balance sheet statements."""
+        logger.info(f"Fetching balance sheet for '{symbol}', period={period}")
+        return self._get(f"balance-sheet-statement/{symbol}", {"period": period})
+
+    def get_balance_sheet_as_reported(self, symbol: str, period: str = "annual") -> List[Dict]:
+        """Fetch balance sheet as reported."""
+        logger.info(f"Fetching balance sheet as reported for '{symbol}', period={period}")
+        return self._get(f"balance-sheet-statement-as-reported/{symbol}", {"period": period})
+
+    def get_cash_flow_statement(self, symbol: str, period: str = "annual") -> List[Dict]:
+        """Fetch cash flow statements."""
+        logger.info(f"Fetching cash flow statements for '{symbol}', period={period}")
+        return self._get(f"cash-flow-statement/{symbol}", {"period": period})
 
     def get_key_metrics(self, symbol: str) -> List[Dict]:
+        """Fetch key metrics."""
         logger.info(f"Fetching key metrics for '{symbol}'")
         return self._get(f"key-metrics/{symbol}")
 
     def get_revenue_segmentation(self, symbol: str) -> Dict[int, Dict[str, float]]:
+        """Fetch revenue segmentation."""
         logger.info(f"Fetching revenue segmentation for '{symbol}'")
-        endpoint = "revenue-product-segmentation"  # Corrected endpoint without 'v4'
-        base_url_v4 = "https://financialmodelingprep.com/api/v4"  # New base URL for v4
+        endpoint = "revenue-product-segmentation"
+        base_url_v4 = "https://financialmodelingprep.com/api/v4"
         
         params = {
             "symbol": symbol,
@@ -80,39 +96,42 @@ class FMPClient:
             "period": "annual"
         }
         
-        data = self._get(endpoint, params=params, base_url=base_url_v4)  # Use v4 base URL
+        data = self._get(endpoint, params=params, base_url=base_url_v4)
         
         result = {}
         for entry in data:
-            # Adjust based on actual API response structure
-            date_str = entry.get("date")
-            segments = entry.get("segments")
-            if date_str and segments:
-                try:
-                    year = int(date_str.split('-')[0])
-                    if isinstance(segments, dict):
-                        result[year] = segments
-                except ValueError:
-                    logger.warning(f"Invalid date format: {date_str}")
-                    continue
+            for date_str, segments in entry.items():
+                if date_str and segments:
+                    try:
+                        year = int(date_str.split('-')[0])
+                        if isinstance(segments, dict):
+                            result[year] = segments
+                    except ValueError:
+                        logger.warning(f"Invalid date format: {date_str}")
+                        continue
         return result
 
     def get_fiscal_year_end(self, symbol: str) -> Optional[str]:
+        """Fetch fiscal year end from company core information."""
         logger.debug(f"Fetching fiscalYearEnd for '{symbol}' from /v4/company-core-information")
-        url = "https://financialmodelingprep.com/api/v4/company-core-information"
-        params = {"symbol": symbol, "apikey": self.api_key}
+        endpoint = "company-core-information"
+        base_url_v4 = "https://financialmodelingprep.com/api/v4"
+        params = {"symbol": symbol}
+        return self._get_fiscal_year_end(symbol, base_url_v4, endpoint, params)
+    
+    def _get_fiscal_year_end(self, symbol: str, base_url: str, endpoint: str, params: Dict) -> Optional[str]:
+        """Helper method to fetch fiscal year end."""
         try:
-            response = self.session.get(url, params=params)
-            response.raise_for_status()
-            data = response.json()
+            data = self._get(endpoint, params=params, base_url=base_url)
             if isinstance(data, list) and len(data) > 0:
                 return data[0].get("fiscalYearEnd")
             return None
-        except requests.exceptions.RequestException as e:
-            logger.exception(f"Error fetching fiscalYearEnd for {symbol}")
-            raise FMPError(f"Error fetching fiscalYearEnd for {symbol}: {str(e)}")
+        except FMPError as e:
+            logger.error(f"Error fetching fiscalYearEnd for {symbol}: {e}")
+            return None
 
     def get_quote_short(self, symbol: str) -> Optional[float]:
+        """Fetch short quote price."""
         logger.debug(f"Fetching short quote for '{symbol}'")
         try:
             data = self._get(f"quote-short/{symbol}")

@@ -1,4 +1,5 @@
 # src/financial_data/fmp_client.py
+
 import requests
 from typing import Dict, List, Optional
 from .models import CompanyProfile, FinancialStatement
@@ -47,15 +48,15 @@ class FMPClient:
         )
 
     def get_financial_statements(self, symbol: str, statement_type: str, period: str = "annual") -> List[Dict]:
-        """Fetch financial statements."""
+        """Fetch financial statements from e.g. /income-statement, /balance-sheet-statement, etc."""
         return self._get(f"{statement_type}/{symbol}", {"period": period})
 
     def get_key_metrics(self, symbol: str) -> List[Dict]:
-        """Fetch key metrics."""
+        """Fetch key metrics from /key-metrics/<symbol>."""
         return self._get(f"key-metrics/{symbol}")
 
     def get_revenue_segmentation(self, symbol: str) -> Dict[int, Dict[str, float]]:
-        """Fetch revenue segmentation data."""
+        """Fetch revenue segmentation data (v4/revenue-product-segmentation)."""
         endpoint = "v4/revenue-product-segmentation"
         data = self._get(endpoint, {
             "symbol": symbol,
@@ -73,3 +74,38 @@ class FMPClient:
                 except ValueError:
                     continue
         return result
+
+    # *** ADDED ***
+    def get_fiscal_year_end(self, symbol: str) -> Optional[str]:
+        """
+        Fetch the fiscalYearEnd from the company-core-information endpoint.
+        e.g. /v4/company-core-information?symbol=<SYMBOL>
+        Returns the FYE string like "09-30" or None if not found.
+        """
+        try:
+            # Endpoint differs from self.base_url because it's a /v4
+            # but we can override base_url or manually build the full path:
+            url = "https://financialmodelingprep.com/api/v4/company-core-information"
+            params = {"symbol": symbol, "apikey": self.api_key}
+            response = self.session.get(url, params=params)
+            response.raise_for_status()
+            data = response.json()
+            if isinstance(data, list) and len(data) > 0:
+                return data[0].get("fiscalYearEnd")
+            return None
+        except requests.exceptions.RequestException as e:
+            raise FMPError(f"Error fetching fiscalYearEnd for {symbol}: {str(e)}")
+    
+    # *** ADDED ***
+    def get_quote_short(self, symbol: str) -> Optional[float]:
+        """
+        Fetch the short quote from /quote-short/<symbol> to get current price.
+        Returns a float (price) or None if not found.
+        """
+        try:
+            data = self._get(f"quote-short/{symbol}")
+            if isinstance(data, list) and len(data) > 0:
+                return data[0].get("price")
+        except FMPError:
+            pass
+        return None

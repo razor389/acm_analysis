@@ -2,12 +2,18 @@
 import sys
 import os
 import logging
+from pathlib import Path
+
+# Add the `src` directory to the Python path
+sys.path.append(str(Path(__file__).resolve().parent / "src"))
 
 # Import the needed classes from your src
 from src.utils.config import Config
 from src.financial_data.fmp_client import FMPClient
 from src.financial_data.yahoo_client import YahooFinanceClient
 from src.financial_data.data_processor import FinancialDataProcessor
+
+
 
 def main():
     # 1) Optional: configure logging

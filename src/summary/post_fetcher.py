@@ -3,10 +3,13 @@
 import os
 import json
 import requests
+import logging
 from bs4 import BeautifulSoup
 from dotenv import load_dotenv
 
-load_dotenv()  # Ensure environment variables are loaded
+load_dotenv()
+
+logger = logging.getLogger(__name__)  # create a module-level logger
 
 class WebsiteToolboxFetcher:
     def __init__(self, api_key: str, base_url: str = "https://api.websitetoolbox.com/v1/api"):
@@ -17,71 +20,76 @@ class WebsiteToolboxFetcher:
             "Accept": "application/json",
             "x-api-key": self.api_key
         })
+        logger.debug(f"Initialized WebsiteToolboxFetcher with base_url={self.base_url}")
 
     def get_categories(self):
-        """Fetch top-level categories (first page)."""
         url = f"{self.base_url}/categories"
+        logger.debug(f"Requesting categories from {url}")
         resp = self.session.get(url)
+        logger.debug(f"Response status code: {resp.status_code}")
         resp.raise_for_status()
         return resp.json()
 
     def get_topics_for_category(self, category_id: str):
-        """Fetch topics for a given category ID."""
         url = f"{self.base_url}/topics"
+        logger.debug(f"Fetching topics for category {category_id} from {url}")
         resp = self.session.get(url, params={"categoryId": category_id})
+        logger.debug(f"Response status code: {resp.status_code}")
         resp.raise_for_status()
         return resp.json()
 
     def get_posts_for_topic(self, topic_id: str):
-        """Fetch posts for a given topic ID."""
         url = f"{self.base_url}/posts"
+        logger.debug(f"Fetching posts for topic {topic_id} from {url}")
         resp = self.session.get(url, params={"topicId": topic_id})
+        logger.debug(f"Response status code: {resp.status_code}")
         resp.raise_for_status()
         return resp.json()
 
     def find_category_by_title(self, title: str):
+        logger.debug(f"Looking for category with title '{title}'")
         all_cats = self.get_categories()
         for cat in all_cats.get("data", []):
             if cat.get("title") == title:
+                logger.debug(f"Found matching category: {cat}")
                 return cat
+        logger.debug(f"No matching category found for title '{title}'")
         return None
 
     def get_subcategories(self, all_categories, parent_id: str):
-        """Recursively find subcategories whose parentId == parent_id."""
+        logger.debug(f"Finding subcategories under parent_id={parent_id}")
         subcats = []
         for cat in all_categories.get("data", []):
             if cat.get("parentId") == parent_id:
+                logger.debug(f"Found subcategory: {cat}")
                 subcats.append(cat)
                 subcats += self.get_subcategories(all_categories, cat["categoryId"])
         return subcats
 
 
 def fetch_all_posts_for_ticker(ticker: str, output_dir: str, api_key: str):
-    """
-    High-level function to fetch all posts for the given ticker from WebsiteToolbox.
-    Saves them to output/{ticker}_posts.json.
-    """
+    logger.info(f"Fetching all posts for ticker '{ticker}'...")
     fetcher = WebsiteToolboxFetcher(api_key=api_key)
 
     # 1) Get all categories
     all_cats = fetcher.get_categories()
     cat_list = all_cats.get("data", [])
     if not cat_list:
-        print("No categories returned from the API.")
+        logger.warning("No categories returned from the API.")
         return
 
-    # 2) Find parent category for ticker
+    # 2) Find parent category
     parent_cat = fetcher.find_category_by_title(ticker)
     if not parent_cat:
-        print(f"No category found with title '{ticker}'.")
+        logger.warning(f"No category found with title '{ticker}'.")
         return
 
     parent_id = parent_cat["categoryId"]
-    print(f"Found category '{ticker}' (ID={parent_id}).")
+    logger.debug(f"Found category '{ticker}' (ID={parent_id}).")
 
     # 3) Get subcategories
     subcategories = fetcher.get_subcategories(all_cats, parent_id)
-    print(f"Found {len(subcategories)} subcategories under '{ticker}'.")
+    logger.debug(f"Found {len(subcategories)} subcategories under '{ticker}'.")
 
     relevant_cats = [parent_cat] + subcategories
     unique_posts = {}
@@ -94,7 +102,7 @@ def fetch_all_posts_for_ticker(ticker: str, output_dir: str, api_key: str):
         topics_data = fetcher.get_topics_for_category(cat_id)
         topics_list = topics_data.get("data", [])
 
-        print(f"Category '{cat_title}' (ID={cat_id}) -> {len(topics_list)} topic(s).")
+        logger.debug(f"Category '{cat_title}' (ID={cat_id}) -> {len(topics_list)} topic(s).")
 
         for topic in topics_list:
             topic_id = topic.get("topicId")
@@ -103,7 +111,7 @@ def fetch_all_posts_for_ticker(ticker: str, output_dir: str, api_key: str):
             posts_data = fetcher.get_posts_for_topic(topic_id)
             posts_list = posts_data.get("data", [])
 
-            print(f"  Topic '{topic_title}' (ID={topic_id}) -> {len(posts_list)} post(s).")
+            logger.debug(f"  Topic '{topic_title}' (ID={topic_id}) -> {len(posts_list)} post(s).")
 
             for post in posts_list:
                 p_id = post.get("postId")
@@ -128,12 +136,11 @@ def fetch_all_posts_for_ticker(ticker: str, output_dir: str, api_key: str):
     # 6) Sort by timestamp ascending
     simplified_posts.sort(key=lambda p: p["timestamp"])
 
-    # 7) Save to output
+    # 7) Save
     os.makedirs(output_dir, exist_ok=True)
     out_file = os.path.join(output_dir, f"{ticker}_posts.json")
     with open(out_file, "w", encoding="utf-8") as f:
         json.dump(simplified_posts, f, indent=2, ensure_ascii=False)
 
-    print(f"Saved {len(simplified_posts)} posts to '{out_file}'.")
-
+    logger.info(f"Saved {len(simplified_posts)} posts to '{out_file}'.")
     return simplified_posts

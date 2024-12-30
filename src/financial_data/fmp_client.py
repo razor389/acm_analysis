@@ -1,8 +1,11 @@
 # src/financial_data/fmp_client.py
 
 import requests
+import logging
 from typing import Dict, List, Optional
 from .models import CompanyProfile, FinancialStatement
+
+logger = logging.getLogger(__name__)
 
 class FMPError(Exception):
     """Base exception for FMP API errors."""
@@ -15,22 +18,31 @@ class FMPClient:
         self.api_key = api_key
         self.base_url = base_url
         self.session = requests.Session()
-    
+        logger.debug(f"FMPClient initialized with base_url={self.base_url}")
+
     def _get(self, endpoint: str, params: Optional[Dict] = None) -> Dict:
         """Make GET request to FMP API."""
         if params is None:
             params = {}
         params["apikey"] = self.api_key
         
+        url = f"{self.base_url}/{endpoint}"
+        logger.debug(f"Requesting {url} with params={params}")
+        
         try:
-            response = self.session.get(f"{self.base_url}/{endpoint}", params=params)
+            response = self.session.get(url, params=params)
+            logger.debug(f"Response status code: {response.status_code}")
             response.raise_for_status()
-            return response.json()
+            json_data = response.json()
+            logger.debug(f"Response JSON (truncated): {str(json_data)[:200]}...")
+            return json_data
         except requests.exceptions.RequestException as e:
+            logger.exception(f"FMP API request failed for endpoint {endpoint}")
             raise FMPError(f"FMP API request failed: {str(e)}")
 
     def get_company_profile(self, symbol: str) -> CompanyProfile:
         """Fetch company profile."""
+        logger.info(f"Fetching company profile for '{symbol}'")
         data = self._get(f"profile/{symbol}")
         if not data or not isinstance(data, list):
             raise FMPError(f"Invalid profile data for {symbol}")
@@ -48,21 +60,17 @@ class FMPClient:
         )
 
     def get_financial_statements(self, symbol: str, statement_type: str, period: str = "annual") -> List[Dict]:
-        """Fetch financial statements from e.g. /income-statement, /balance-sheet-statement, etc."""
+        logger.info(f"Fetching {statement_type} for '{symbol}', period={period}")
         return self._get(f"{statement_type}/{symbol}", {"period": period})
 
     def get_key_metrics(self, symbol: str) -> List[Dict]:
-        """Fetch key metrics from /key-metrics/<symbol>."""
+        logger.info(f"Fetching key metrics for '{symbol}'")
         return self._get(f"key-metrics/{symbol}")
 
     def get_revenue_segmentation(self, symbol: str) -> Dict[int, Dict[str, float]]:
-        """Fetch revenue segmentation data (v4/revenue-product-segmentation)."""
+        logger.info(f"Fetching revenue segmentation for '{symbol}'")
         endpoint = "v4/revenue-product-segmentation"
-        data = self._get(endpoint, {
-            "symbol": symbol,
-            "structure": "flat",
-            "period": "annual"
-        })
+        data = self._get(endpoint, {"symbol": symbol, "structure": "flat", "period": "annual"})
         
         result = {}
         for entry in data:
@@ -75,18 +83,11 @@ class FMPClient:
                     continue
         return result
 
-    # *** ADDED ***
     def get_fiscal_year_end(self, symbol: str) -> Optional[str]:
-        """
-        Fetch the fiscalYearEnd from the company-core-information endpoint.
-        e.g. /v4/company-core-information?symbol=<SYMBOL>
-        Returns the FYE string like "09-30" or None if not found.
-        """
+        logger.debug(f"Fetching fiscalYearEnd for '{symbol}' from /v4/company-core-information")
+        url = "https://financialmodelingprep.com/api/v4/company-core-information"
+        params = {"symbol": symbol, "apikey": self.api_key}
         try:
-            # Endpoint differs from self.base_url because it's a /v4
-            # but we can override base_url or manually build the full path:
-            url = "https://financialmodelingprep.com/api/v4/company-core-information"
-            params = {"symbol": symbol, "apikey": self.api_key}
             response = self.session.get(url, params=params)
             response.raise_for_status()
             data = response.json()
@@ -94,14 +95,11 @@ class FMPClient:
                 return data[0].get("fiscalYearEnd")
             return None
         except requests.exceptions.RequestException as e:
+            logger.exception(f"Error fetching fiscalYearEnd for {symbol}")
             raise FMPError(f"Error fetching fiscalYearEnd for {symbol}: {str(e)}")
-    
-    # *** ADDED ***
+
     def get_quote_short(self, symbol: str) -> Optional[float]:
-        """
-        Fetch the short quote from /quote-short/<symbol> to get current price.
-        Returns a float (price) or None if not found.
-        """
+        logger.debug(f"Fetching short quote for '{symbol}'")
         try:
             data = self._get(f"quote-short/{symbol}")
             if isinstance(data, list) and len(data) > 0:

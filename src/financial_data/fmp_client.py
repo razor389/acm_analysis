@@ -20,13 +20,15 @@ class FMPClient:
         self.session = requests.Session()
         logger.debug(f"FMPClient initialized with base_url={self.base_url}")
 
-    def _get(self, endpoint: str, params: Optional[Dict] = None) -> Dict:
+    def _get(self, endpoint: str, params: Optional[Dict] = None, base_url: Optional[str] = None) -> Dict:
         """Make GET request to FMP API."""
         if params is None:
             params = {}
         params["apikey"] = self.api_key
         
-        url = f"{self.base_url}/{endpoint}"
+        # Use the overridden base_url if provided, else default to self.base_url
+        final_base_url = base_url if base_url else self.base_url
+        url = f"{final_base_url}/{endpoint}"
         logger.debug(f"Requesting {url} with params={params}")
         
         try:
@@ -69,17 +71,29 @@ class FMPClient:
 
     def get_revenue_segmentation(self, symbol: str) -> Dict[int, Dict[str, float]]:
         logger.info(f"Fetching revenue segmentation for '{symbol}'")
-        endpoint = "v4/revenue-product-segmentation"
-        data = self._get(endpoint, {"symbol": symbol, "structure": "flat", "period": "annual"})
+        endpoint = "revenue-product-segmentation"  # Corrected endpoint without 'v4'
+        base_url_v4 = "https://financialmodelingprep.com/api/v4"  # New base URL for v4
+        
+        params = {
+            "symbol": symbol,
+            "structure": "flat",
+            "period": "annual"
+        }
+        
+        data = self._get(endpoint, params=params, base_url=base_url_v4)  # Use v4 base URL
         
         result = {}
         for entry in data:
-            for date_str, segments in entry.items():
+            # Adjust based on actual API response structure
+            date_str = entry.get("date")
+            segments = entry.get("segments")
+            if date_str and segments:
                 try:
                     year = int(date_str.split('-')[0])
                     if isinstance(segments, dict):
                         result[year] = segments
                 except ValueError:
+                    logger.warning(f"Invalid date format: {date_str}")
                     continue
         return result
 

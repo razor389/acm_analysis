@@ -19,7 +19,7 @@ setup(
     python_requires=">=3.7",
     entry_points={
         "console_scripts": [
-            "acm-analysis=razor389_analysis.main:main",
+            "acm-analysis=src.main:main",
         ],
     },
 )

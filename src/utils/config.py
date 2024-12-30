@@ -3,9 +3,11 @@ import os
 import yaml
 from pathlib import Path
 from typing import Dict, Any
+from dotenv import load_dotenv
 
 class Config:
     def __init__(self, config_path: str = None):
+        load_dotenv(dotenv_path=Path(__file__).parents[2] / ".env")  
         self.config = self._load_config(config_path)
         self._validate_config()
 

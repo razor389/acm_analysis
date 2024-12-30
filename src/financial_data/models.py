@@ -1,5 +1,3 @@
-# src/financial_data/models.py
-
 from dataclasses import dataclass, field
 from typing import Dict, Optional
 
@@ -80,6 +78,7 @@ class ExpensesBreakdown:
     research_and_development: Optional[float] = None
     selling_marketing_general_admin: Optional[float] = None
 
+@dataclass
 class ExternalCostBreakdown:
     income_taxes: Optional[float] = None
     interest_and_other_income: Optional[float] = None
@@ -87,9 +86,9 @@ class ExternalCostBreakdown:
 @dataclass
 class ProfitDescriptionData:
     total_revenues: Optional[float] = None
-    revenue_breakdown: Dict[str, float] = field(default_factory=dict)  # Dynamic revenue categories
+    revenue_breakdown: Dict[str, float] = field(default_factory=dict)
     total_expenses: Optional[float] = None
-    expenses_breakdown: ExpensesBreakdown = ExpensesBreakdown()  # Static expenses breakdown
+    expenses_breakdown: ExpensesBreakdown = field(default_factory=ExpensesBreakdown)
     ebitda: Optional[float] = None
     amortization_depreciation: Optional[float] = None
     free_cash_flow: Optional[float] = None
@@ -97,7 +96,7 @@ class ProfitDescriptionData:
     operating_earnings: Optional[float] = None
     operating_earnings_percent_revenue: Optional[str] = None
     total_external_costs: Optional[float] = None
-    external_cost_breakdown: ExternalCostBreakdown = ExternalCostBreakdown() # Static external cost breakdown
+    external_cost_breakdown: ExternalCostBreakdown = field(default_factory=ExternalCostBreakdown)
     earnings: Optional[float] = None
     earnings_percent_revenue: Optional[str] = None
     dividend_paid: Optional[str] = None
@@ -105,16 +104,11 @@ class ProfitDescriptionData:
     share_buybacks_from_stmt_cf: Optional[float] = None
     net_biz_acquisition: Optional[float] = None
 
-
 @dataclass
 class ProfitDescriptionCharacteristics:
     cagr_external_costs_income_taxes_percent: Optional[float] = None
     cagr_external_costs_interest_and_other_income_percent: Optional[float] = None
-
     cagr_revenues_breakdown_percent: Dict[str, Optional[float]] = field(default_factory=dict)
-    # Add other CAGR characteristics as needed
-
-    # Overall CAGR metrics
     cagr_revenues_percent: Optional[float] = None
     cagr_total_expenses_percent: Optional[float] = None
     cagr_ebitda_percent: Optional[float] = None
@@ -129,7 +123,7 @@ class ProfitDescriptionCharacteristics:
 @dataclass
 class ProfitDescription:
     profit_description_characteristics: Optional[ProfitDescriptionCharacteristics] = None
-    data: Dict[str, ProfitDescriptionData] = field(default_factory=dict)  # Per-year profit descriptions
+    data: Dict[str, ProfitDescriptionData] = field(default_factory=dict)
 
 @dataclass
 class AssetsBreakdown:
@@ -163,11 +157,11 @@ class ShareholdersEquityBreakdown:
 @dataclass
 class BalanceSheetData:
     total_assets: Optional[float] = None
-    assets_breakdown: AssetsBreakdown = AssetsBreakdown()
+    assets_breakdown: AssetsBreakdown = field(default_factory=AssetsBreakdown)
     total_liabilities: Optional[float] = None
-    liabilities_breakdown: LiabilitiesBreakdown = LiabilitiesBreakdown()
+    liabilities_breakdown: LiabilitiesBreakdown = field(default_factory=LiabilitiesBreakdown)
     total_shareholders_equity: Optional[float] = None
-    shareholders_equity_breakdown: ShareholdersEquityBreakdown = ShareholdersEquityBreakdown()
+    shareholders_equity_breakdown: ShareholdersEquityBreakdown = field(default_factory=ShareholdersEquityBreakdown)
 
 @dataclass
 class BalanceSheetCharacteristics:
@@ -178,7 +172,7 @@ class BalanceSheetCharacteristics:
 @dataclass
 class BalanceSheet:
     balance_sheet_characteristics: Optional[BalanceSheetCharacteristics] = None
-    data: Dict[str, BalanceSheetData] = field(default_factory=dict)  # Per-year balance sheet
+    data: Dict[str, BalanceSheetData] = field(default_factory=dict)
 
 @dataclass
 class AnalysisOfDebtLevels:
@@ -196,10 +190,10 @@ class AnalysisOfDebtLevels:
 
 @dataclass
 class Studies:
-    total_debt_capital: AnalysisOfDebtLevels = AnalysisOfDebtLevels()
-    long_term_debt: AnalysisOfDebtLevels = AnalysisOfDebtLevels()
-    net_income_payback: AnalysisOfDebtLevels = AnalysisOfDebtLevels()
-    addback_net_inc_payback: AnalysisOfDebtLevels = AnalysisOfDebtLevels()
+    total_debt_capital: AnalysisOfDebtLevels = field(default_factory=AnalysisOfDebtLevels)
+    long_term_debt: AnalysisOfDebtLevels = field(default_factory=AnalysisOfDebtLevels)
+    net_income_payback: AnalysisOfDebtLevels = field(default_factory=AnalysisOfDebtLevels)
+    addback_net_inc_payback: AnalysisOfDebtLevels = field(default_factory=AnalysisOfDebtLevels)
 
 @dataclass
 class Metrics:

@@ -3,7 +3,7 @@
 import requests
 import logging
 from typing import Dict, List, Optional
-from .models import CompanyProfile
+from ..models import CompanyProfile
 
 logger = logging.getLogger(__name__)
 

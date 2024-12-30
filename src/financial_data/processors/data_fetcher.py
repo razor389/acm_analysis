@@ -3,8 +3,9 @@
 import logging
 from typing import Dict, List, Optional
 
-from financial_data.clients.fmp_client import FMPClient, FMPError
-from financial_data.clients.yahoo_client import YahooFinanceClient
+from ..clients.fmp_client import FMPClient, FMPError
+from ..clients.yahoo_client import YahooFinanceClient
+from ..models import CompanyProfile
 
 logger = logging.getLogger(__name__)
 
@@ -19,7 +20,19 @@ class DataFetcher:
     def fetch_all_data(self, symbol: str) -> Dict:
         """Fetches all necessary data for the given symbol."""
         try:
+            # Get the raw profile first
             profile = self.fmp_client.get_company_profile(symbol)
+            
+            # Convert CompanyProfile to dictionary for consistency
+            profile_dict = {
+                "symbol": profile.symbol,
+                "companyName": profile.company_name,
+                "exchange": profile.exchange,
+                "description": profile.description,
+                "sector": profile.sector,
+                "industry": profile.industry
+            }
+
             fiscal_year_end = self.fmp_client.get_fiscal_year_end(symbol)
             income_statements = self.fmp_client.get_income_statement(symbol, period="annual")
             balance_sheets = self.fmp_client.get_balance_sheet(symbol, period="annual")
@@ -29,7 +42,7 @@ class DataFetcher:
             current_stock_price = self.fmp_client.get_quote_short(symbol) or 0.0
 
             data = {
-                "profile": profile,
+                "profile": profile_dict,
                 "fiscal_year_end": fiscal_year_end,
                 "income_statements": income_statements,
                 "balance_sheets": balance_sheets,
